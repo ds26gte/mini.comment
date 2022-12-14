@@ -82,6 +82,7 @@ MiniComment.config = {
     -- After successful commenting. Does nothing by default.
     post = function() end,
   },
+  flushleft = {},
 }
 --minidoc_afterlines_end
 
@@ -247,6 +248,7 @@ H.setup_config = function(config)
   vim.validate({
     mappings = { config.mappings, 'table' },
     hooks = { config.hooks, 'table' },
+    flushleft = { config.flushleft, 'table' },
   })
 
   vim.validate({
@@ -299,11 +301,25 @@ H.make_comment_parts = function()
   return { left = left, right = right }
 end
 
+H.member = function(val, tbl)
+  for _,val2 in ipairs(tbl) do
+    if val == val2 then
+      return true
+    end
+  end
+  return false
+end
+
 H.make_comment_check = function(comment_parts)
   local l, r = comment_parts.left, comment_parts.right
   -- String is commented if it has structure:
   -- <space> <left> <anything> <right> <space>
-  local regex = string.format('^%%s-%s.*%s%%s-$', vim.pesc(l), vim.pesc(r))
+  local regex
+  if H.member(vim.bo.filetype, MiniComment.config.flushleft) then
+    regex = string.format('^%s.*%s%%s-$', vim.pesc(l), vim.pesc(r))
+  else
+    regex = string.format('^%%s-%s.*%s%%s-$', vim.pesc(l), vim.pesc(r))
+  end
 
   return function(line) return line:find(regex) ~= nil end
 end
@@ -349,7 +365,12 @@ H.make_comment_function = function(comment_parts, indent)
   -- because they have special meaning in `string.format` input. NOTE: don't
   -- use `vim.pesc()` here because it also escapes other special characters
   -- (like '-', '*', etc.).
-  local nonempty_format = indent .. l:gsub('%%', '%%%%') .. lpad .. '%s' .. rpad .. r:gsub('%%', '%%%%')
+  local nonempty_format
+  if H.member(vim.bo.filetype, MiniComment.config.flushleft) then
+    nonempty_format = l:gsub('%%', '%%%%') .. indent .. lpad .. '%s' .. rpad .. r:gsub('%%', '%%%%')
+  else
+    nonempty_format = indent .. l:gsub('%%', '%%%%') .. lpad .. '%s' .. rpad .. r:gsub('%%', '%%%%')
+  end
 
   return function(line)
     -- Line is empty if it doesn't have anything except whitespace
